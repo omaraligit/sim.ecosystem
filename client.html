@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Client</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+    <h1>WebSocket Test</h1>
+
+    <div id="bunnies" class="flex flex-wrap relative transition-all">
+    </div>
+    <script async defer>
+        var bunnies = [];
+        var world = {
+            width: 0,
+            height: 0,
+            tiles: []
+        };
+        // Connect to your WebSocket server (use wss:// for secure production connections)
+        const socket = new WebSocket('ws://localhost:8080');
+
+        // Triggered when the connection is established
+        socket.onopen = function (event) {
+            console.log('Connected to the WebSocket server');
+            socket.send('Hello Server!');
+        };
+
+        // Triggered when a message is received from the server
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            console.log(data);
+            if (data.event === "bunny_update") {
+                // add bunny to map div and add id to the div
+                let bunnyElement = null;
+                if (document.getElementById(`bunny-${data.data.bunny.id}`)) {
+                    bunnyElement = document.getElementById(`bunny-${data.data.bunny.id}`);
+                } else {
+                    bunnyElement = document.createElement(`div`);
+                    bunnyElement.id = `bunny-${data.data.bunny.id}`;
+                    document.getElementById('bunnies').appendChild(bunnyElement);
+                }
+                bunnyElement.className = `w-10 h-10 absolute top-${data.data.bunny.x * 10} left-${data.data.bunny.y * 10} text-xs flex items-center justify-center transition-all duration-300 ease-in-out text-sm`;
+                bunnyElement.innerHTML = `
+                    <div class="bg-blue-100 text-white rounded-full w-5 h-5 p-1 flex items-center justify-center">🐇</div>
+                `;
+            }
+            if (data.event === "world_update" && world.width !== data.data.world.width) {
+                world = data.data.world;
+                console.log(world);
+                document.getElementById('bunnies').className = `flex flex-wrap max-w-[${world.width * 40}px] relative transition-all`;
+                for (let i = 0; i < world.width; i++) {
+                    for (let j = 0; j < world.height; j++) {
+                        const tileElement = document.createElement(`div`);
+                        tileElement.id = `tile-${i}-${j}`;
+                        tileElement.className = `w-10 h-10 bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-200`;
+                        switch (world.tiles[i][j]) {
+                            case "tree":
+                                tileElement.innerHTML = `
+                                    <div>🌳</div>
+                                `;
+                                break;
+                            case "grass":
+                                tileElement.innerHTML = `
+                                    <div>🌿</div>
+                                `;
+                                break;
+                            case "water":
+                                tileElement.innerHTML = `
+                                    <div>💧</div>
+                                `;
+                                break;
+                            case "rock":
+                                tileElement.innerHTML = `
+                                    <div>🪨</div>
+                                `;
+                                break;
+                        }
+                        document.getElementById('bunnies').appendChild(tileElement);
+                    }
+                }
+            }
+
+        };
+
+        // Triggered if an error occurs
+        socket.onerror = function (error) {
+            console.error('WebSocket Error:', error);
+        };
+
+        // Triggered when the connection closes
+        socket.onclose = function (event) {
+            console.log('Connection closed:', event);
+        };
+
+    </script>
+</body>
+
+</html>
