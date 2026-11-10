@@ -5,8 +5,7 @@ const SERVER_URL = 'ws://localhost:8080'
 export default function useSimSocket() {
   const socketRef = useRef(null)
   const [world, setWorld] = useState({ width: 0, height: 0, tiles: [] })
-  const [bunnies, setBunnies] = useState({})
-  const [bunnyCount, setBunnyCount] = useState(0)
+  const [bunnies, setBunnies] = useState([])
 
   useEffect(() => {
     const socket = new WebSocket(SERVER_URL)
@@ -18,18 +17,12 @@ export default function useSimSocket() {
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
-      console.log(data)
       switch (data.event) {
-        case 'bunny_update': {
-          const { bunny } = data.data
-          setBunnies((prev) => ({ ...prev, [bunny.id]: bunny }))
+        case 'world_init':
+          setWorld(data.data)
           break
-        }
-        case 'bunny_count_update':
-          setBunnyCount(data.data.bunnyCount)
-          break
-        case 'world_update':
-          setWorld(data.data.world)
+        case 'tick':
+          setBunnies(data.data.bunnies)
           break
       }
     }
@@ -52,5 +45,5 @@ export default function useSimSocket() {
     }
   }
 
-  return { world, bunnies: Object.values(bunnies), bunnyCount, send }
+  return { world, bunnies, bunnyCount: bunnies.length, send }
 }

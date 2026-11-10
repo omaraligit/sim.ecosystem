@@ -1,3 +1,9 @@
+// Must match the max* fields on Bunny in sim.ts
+const MAX_AGE = 120
+const MAX_HUNGER = 10
+const MAX_THIRST = 10
+const MAX_HAPPINESS = 10
+
 function Stat({ icon, value, max, color }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -11,7 +17,7 @@ function Stat({ icon, value, max, color }) {
 }
 
 export default function BunnyCard({ bunny }) {
-  const hp = bunny.isDead ? 0 : Math.max(bunny.maxAge - bunny.age, 0)
+  const hp = bunny.isDead ? 0 : Math.max(MAX_AGE - bunny.age, 0)
 
   return (
     <div
@@ -32,13 +38,13 @@ export default function BunnyCard({ bunny }) {
       </div>
 
       <div className="relative mx-1.5 -mt-1 rounded-sm bg-linear-to-r from-amber-400 via-yellow-100 to-amber-400 text-center text-[5px] italic">
-        {bunny.gender === 'male' ? '♂ Male' : '♀ Female'} · Age {bunny.age}/{bunny.maxAge}
+        {bunny.gender === 'male' ? '♂ Male' : '♀ Female'} · Age {bunny.age}/{MAX_AGE}
       </div>
 
       <div className="mt-0.5 space-y-px">
-        <Stat icon="🍖" value={bunny.hunger} max={bunny.maxHunger} color="progress-warning" />
-        <Stat icon="💧" value={bunny.thirst} max={bunny.maxThirst} color="progress-info" />
-        <Stat icon="💛" value={bunny.happiness} max={bunny.maxHappiness} color="progress-success" />
+        <Stat icon="🍖" value={bunny.hunger} max={MAX_HUNGER} color="progress-warning" />
+        <Stat icon="💧" value={bunny.thirst} max={MAX_THIRST} color="progress-info" />
+        <Stat icon="💛" value={bunny.happiness} max={MAX_HAPPINESS} color="progress-success" />
       </div>
 
       <div className="mt-0.5 flex justify-between border-t border-amber-500/40 pt-px text-[5px]">

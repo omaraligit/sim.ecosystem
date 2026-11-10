@@ -8,6 +8,7 @@ const DIRECTIONS = [
 ];
 
 class Bunny {
+    private static nextId: number = 1;
     private gender: "male" | "female";
     private stage: "baby" | "adult" | "elder";
     private id: number;
@@ -30,10 +31,24 @@ class Bunny {
     public isDead: boolean = false;
     constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult") {
         this.gender = gender;
-        this.id = Math.floor(Math.random() * 1000);
+        this.id = Bunny.nextId++;
         this.x = x;
         this.y = y;
         this.stage = stage;
+    }
+    toSnapshot() {
+        return {
+            id: this.id,
+            gender: this.gender,
+            stage: this.stage,
+            x: this.x,
+            y: this.y,
+            isPregnant: this.isPregnant,
+            thirst: this.thirst,
+            hunger: this.hunger,
+            happiness: this.happiness,
+            age: this.age,
+        };
     }
     tick(world: World): void {
         this.tickNeeds();
@@ -116,6 +131,14 @@ class World {
 
         return neighbors;
     }
+    toStaticSnapshot() {
+        return {
+            width: this.width,
+            height: this.height,
+            seed: this.seed,
+            tiles: this.tiles,
+        };
+    }
     addBunny(bunny: Bunny): void {
         this.bunnies.push(bunny);
     }
@@ -128,16 +151,13 @@ class World {
 class Sim {
     public world: World = new World(20, 20, Math.floor(Math.random() * 1000));
     public ws: WebSocketServer;
+    private tickCount: number = 0;
     constructor(ws: WebSocketServer) {
         this.ws = ws;
         ws.on("connection", (client: WebSocket) => {
             console.log("client connected");
-            client.send(JSON.stringify({
-                event: "world_update",
-                data: {
-                    world: this.world
-                },
-            }));
+            client.send(JSON.stringify({ event: "world_init", data: this.world.toStaticSnapshot() }));
+            client.send(JSON.stringify({ event: "tick", data: this.tickSnapshot() }));
             client.on("message", (message: any) => {
                 console.log(message.toString(),"ddd");
                 let jsonData;
@@ -153,6 +173,7 @@ class Sim {
                 } 
                 else if (jsonData.event === "sim_set_seed") {
                     this.world = new World(20, 20, jsonData.data.seed);
+                    this.broadcast("world_init", this.world.toStaticSnapshot());
                     console.log("set seed to " + jsonData.data.seed);
                 }
                 else {
@@ -169,14 +190,17 @@ class Sim {
             }
         }
     }
+    private tickSnapshot() {
+        return {
+            tick: this.tickCount,
+            bunnies: this.world.bunnies.map(bunny => bunny.toSnapshot()),
+        };
+    }
     async tick(): Promise<void> {
         while (true) {
             this.world.tick();
-            for (const bunny of this.world.bunnies) {
-                this.broadcast("bunny_update", { bunny });
-            }
-            this.broadcast("bunny_count_update", { bunnyCount: this.world.bunnies.length });
-            this.broadcast("world_update", { world: this.world });
+            this.tickCount++;
+            this.broadcast("tick", this.tickSnapshot());
             await new Promise(resolve => setTimeout(resolve, 750));
         }
     }
