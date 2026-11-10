@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
@@ -10,9 +10,11 @@
 </head>
 
 <body>
-    <h1>WebSocket Test</h1>
-
-    <div id="bunnies" class="flex flex-wrap relative transition-all">
+    <button id="add-bunny" class="btn btn-primary">Add Bunny</button>
+    <div id="bunny-count" class="text-sm">Bunnies: 0</div>
+    <input type="number" id="seed" class="input input-bordered" placeholder="Seed" value="42">
+    <button id="set-seed" class="btn btn-primary">Set Seed</button>
+    <div id="bunnies" class="">
     </div>
     <script async defer>
         var bunnies = [];
@@ -27,7 +29,7 @@
         // Triggered when the connection is established
         socket.onopen = function (event) {
             console.log('Connected to the WebSocket server');
-            socket.send('Hello Server!');
+            //socket.send('Hello Server!');
         };
 
         // Triggered when a message is received from the server
@@ -44,20 +46,26 @@
                     bunnyElement.id = `bunny-${data.data.bunny.id}`;
                     document.getElementById('bunnies').appendChild(bunnyElement);
                 }
-                bunnyElement.className = `w-10 h-10 absolute top-${data.data.bunny.x * 10} left-${data.data.bunny.y * 10} text-xs flex items-center justify-center transition-all duration-300 ease-in-out text-sm`;
+                bunnyElement.className = `w-10 h-10 absolute top-${data.data.bunny.x * 10} left-${data.data.bunny.y * 10} text-xs flex items-center justify-center transition-all duration-750 ease-in-out text-sm`;
                 bunnyElement.innerHTML = `
-                    <div class="bg-blue-100 text-white rounded-full w-5 h-5 p-1 flex items-center justify-center">🐇</div>
+                    <div class="rounded-full w-5 h-5 p-1 flex items-center justify-center">🐇</div>
                 `;
             }
-            if (data.event === "world_update" && world.width !== data.data.world.width) {
+            if (data.event === "bunny_count_update") {
+                document.getElementById('bunny-count').innerHTML = `Bunnies: ${data.data.bunnyCount}`;
+            }
+            if (data.event === "world_update") {
                 world = data.data.world;
                 console.log(world);
-                document.getElementById('bunnies').className = `flex flex-wrap max-w-[${world.width * 40}px] relative transition-all`;
+                document.getElementById('bunnies').className = `flex flex-wrap max-w-[${world.width * 40}px] relative transition-all mx-auto`;
                 for (let i = 0; i < world.width; i++) {
                     for (let j = 0; j < world.height; j++) {
+                        if (document.getElementById(`tile-${i}-${j}`)) {
+                            document.getElementById(`tile-${i}-${j}`).remove();
+                        }
                         const tileElement = document.createElement(`div`);
                         tileElement.id = `tile-${i}-${j}`;
-                        tileElement.className = `w-10 h-10 bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-200`;
+                        tileElement.className = `w-10 h-10 bg-base-100 border border-base-200 flex items-center justify-center text-xs text-base-200`;
                         switch (world.tiles[i][j]) {
                             case "tree":
                                 tileElement.innerHTML = `
@@ -97,6 +105,20 @@
             console.log('Connection closed:', event);
         };
 
+        document.getElementById('add-bunny').addEventListener('click', () => {
+            socket.send(JSON.stringify({
+                event: "sim_add_bunny",
+            }));
+        });
+
+        document.getElementById('set-seed').addEventListener('click', () => {
+            socket.send(JSON.stringify({
+                event: "sim_set_seed",
+                data: {
+                    seed: document.getElementById('seed').value
+                },
+            }));
+        });
     </script>
 </body>
 

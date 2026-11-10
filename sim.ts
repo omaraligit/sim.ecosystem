@@ -18,7 +18,7 @@ class Bunny {
     private maxThirst: number = 10;
     private maxHunger: number = 10;
     private maxHappiness: number = 10;
-    private maxAge: number = 1200;
+    private maxAge: number = 120;
     public isDead: boolean = false;
     constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult", world: World) {
         this.gender = gender;
@@ -51,6 +51,9 @@ class Bunny {
         }
     }
     move(): void {
+        // if (Math.random() < 0.6) {
+        // return;
+        // }
         const DIRECTIONS = [
             [-1, -1], [-1, 0], [-1, 1],
             [0, -1], [0, 1],
@@ -74,11 +77,13 @@ class World {
     public perlinValue: number[][] = [];
     public xscale: number = 0.045 + Math.random() * 0.01;
     public yscale: number = 0.095 + Math.random() * 0.01;
-    constructor(width: number = 10, height: number = 10) {
+    private seed: number = 42;
+    constructor(width: number = 10, height: number = 10, seed: number = 42) {
         this.width = width;
         this.height = height;
+        this.seed = seed;
         // Instantiate with an optional seed and grid dimensions
-        const perlin = new PerlinNoise({ seed: 42, gridSize: [64, 64] });
+        const perlin = new PerlinNoise({ seed: this.seed, gridSize: [64, 64] });
 
         // Get a smooth value at coordinates (returns approximately -1 to 1)
         const value = perlin.noise([10.5, 20.3]);
@@ -127,13 +132,30 @@ class World {
 
 class Sim {
     public bunnies: Bunny[] = [];
-    public world: World = new World(40, 40);
+    public world: World = new World(20, 20, Math.floor(Math.random() * 1000));
     public ws: WebSocketServer;
     constructor(ws: WebSocketServer) {
+
         this.ws = ws;
-        for (let i = 0; i < 10; i++) {
-            this.bunnies.push(new Bunny("male", 0, 0, "adult", this.world));
-        }
+        ws.on("connection", (client: WebSocket) => {
+            console.log("client connected");
+            client.on("message", (message: any) => {
+                console.log(message.toString(),"ddd");
+                const data = message.toString();
+                const jsonData = JSON.parse(data);
+                if (jsonData.event === "sim_add_bunny") {
+                    this.bunnies.push(new Bunny("male", 0, 0, "adult", this.world));
+                    console.log("added bunny");
+                } 
+                else if (jsonData.event === "sim_set_seed") {
+                    this.world = new World(20, 20, jsonData.data.seed);
+                    console.log("set seed to " + jsonData.data.seed);
+                }
+                else {
+                    console.log("invalid message");
+                }
+            });
+        });        
         for (const client of this.ws.clients) {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({
@@ -157,6 +179,12 @@ class Sim {
                                 bunny
                             },
                         }));
+                        client.send(JSON.stringify({
+                            event: "bunny_count_update",
+                            data: {
+                                bunnyCount: this.bunnies.length
+                            },
+                        }));
                     }
                 }
             }
@@ -171,7 +199,7 @@ class Sim {
                 }
             }
             this.bunnies = this.bunnies.filter(bunny => !bunny.isDead);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 750));
         }
     }
 }
