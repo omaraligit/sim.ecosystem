@@ -75,8 +75,8 @@ class World {
     private height: number = 10;
     public tiles: string[][] = []
     public perlinValue: number[][] = [];
-    public xscale: number = 0.045 + Math.random() * 0.01;
-    public yscale: number = 0.095 + Math.random() * 0.01;
+    public xscale: number = 0.25;
+    public yscale: number = 0.25;
     private seed: number = 42;
     constructor(width: number = 10, height: number = 10, seed: number = 42) {
         this.width = width;
@@ -101,9 +101,9 @@ class World {
         }
     }
     setTileByValue(noise: number): string {
-        if (noise > 0.65) return "rock";
-        if (noise > 0.2) return "tree";
-        if (noise > -0.1) return "grass";
+        if (noise > 0.40) return "rock";
+        if (noise > 0.35) return "tree";
+        if (noise > -0.25) return "grass";
         return "water";
     }
     getTile(x: number, y: number): string {
