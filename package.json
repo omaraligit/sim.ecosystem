@@ -6,7 +6,8 @@
   "scripts": {
     "sim": "npx tsx --watch sim.ts",
     "server": "npx tsx --watch server.ts",
-    "dev": "concurrently \"npm:server\" \"npm:sim\""
+    "ui": "cd sim.client && npm run dev",
+    "dev": "concurrently \"npm:server\" \"npm:sim\" \"npm:ui\""
   },
   "keywords": [],
   "author": "",

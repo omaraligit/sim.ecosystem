@@ -1,3 +1,12 @@
+import { PerlinNoise } from '@arvarus/trouz';
+import WebSocket, { WebSocketServer } from 'ws';
+
+const DIRECTIONS = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1], [0, 1],
+    [1, -1], [1, 0], [1, 1],
+];
+
 class Bunny {
     private gender: "male" | "female";
     private stage: "baby" | "adult" | "elder";
@@ -5,7 +14,6 @@ class Bunny {
     // position
     private x: number = 1;
     private y: number = 1;
-    public world: World;
     // pregnancy
     private isPregnant: boolean = false;
     private pregnancyDuration: number = 10;
@@ -20,19 +28,16 @@ class Bunny {
     private maxHappiness: number = 10;
     private maxAge: number = 120;
     public isDead: boolean = false;
-    constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult", world: World) {
+    constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult") {
         this.gender = gender;
         this.id = Math.floor(Math.random() * 1000);
         this.x = x;
         this.y = y;
         this.stage = stage;
-        this.world = world;
     }
-    tick(): void {
+    tick(world: World): void {
         this.tickNeeds();
-        this.move();
-        // console.log(this)
-        console.log(`dead: ${this.isDead} ${this.stage} bunny ${this.id} at ${this.x}, ${this.y} with thirst: ${this.thirst}, hunger: ${this.hunger}, happiness: ${this.happiness}, age: ${this.age} tick`);
+        this.move(world);
     }
     tickNeeds(): void {
         this.thirst = Math.min(Math.max(this.thirst + 1, 0), this.maxThirst);
@@ -50,44 +55,32 @@ class Bunny {
             this.isDead = true;
         }
     }
-    move(): void {
-        // if (Math.random() < 0.6) {
-        // return;
-        // }
-        const DIRECTIONS = [
-            [-1, -1], [-1, 0], [-1, 1],
-            [0, -1], [0, 1],
-            [1, -1], [1, 0], [1, 1],
-        ];
+    move(world: World): void {
         const randomDirection = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
         const r = this.x + randomDirection[0];
         const c = this.y + randomDirection[1];
-        if (r >= 0 && r < this.world.tiles.length && c >= 0 && c < this.world.tiles[r].length) {
+        if (r >= 0 && r < world.tiles.length && c >= 0 && c < world.tiles[r].length) {
             this.x = r;
             this.y = c;
         }
     }
 }
-import { PerlinNoise } from '@arvarus/trouz';
 
 class World {
-    private width: number = 10;
-    private height: number = 10;
+    public readonly width: number = 10;
+    public readonly height: number = 10;
     public tiles: string[][] = []
     public perlinValue: number[][] = [];
     public xscale: number = 0.25;
     public yscale: number = 0.25;
-    private seed: number = 42;
+    public readonly seed: number = 42;
+    public bunnies: Bunny[] = [];
     constructor(width: number = 10, height: number = 10, seed: number = 42) {
         this.width = width;
         this.height = height;
         this.seed = seed;
         // Instantiate with an optional seed and grid dimensions
         const perlin = new PerlinNoise({ seed: this.seed, gridSize: [64, 64] });
-
-        // Get a smooth value at coordinates (returns approximately -1 to 1)
-        const value = perlin.noise([10.5, 20.3]);
-        console.log(value);
         for (let i = 0; i < width; i++) {
             let r = [];
             let p = [];
@@ -110,11 +103,6 @@ class World {
         return this.tiles[x][y];
     }
     getNeighbors(x: number, y: number): string[] {
-        const DIRECTIONS = [
-            [-1, -1], [-1, 0], [-1, 1],
-            [0, -1], [0, 1],
-            [1, -1], [1, 0], [1, 1],
-        ];
         const neighbors: string[] = [];
 
         for (const [dr, dc] of DIRECTIONS) {
@@ -128,23 +116,39 @@ class World {
 
         return neighbors;
     }
+    addBunny(bunny: Bunny): void {
+        this.bunnies.push(bunny);
+    }
+    tick(): void {
+        for (const bunny of this.bunnies) bunny.tick(this);
+        this.bunnies = this.bunnies.filter(bunny => !bunny.isDead);
+    }
 }
 
 class Sim {
-    public bunnies: Bunny[] = [];
     public world: World = new World(20, 20, Math.floor(Math.random() * 1000));
     public ws: WebSocketServer;
     constructor(ws: WebSocketServer) {
-
         this.ws = ws;
         ws.on("connection", (client: WebSocket) => {
             console.log("client connected");
+            client.send(JSON.stringify({
+                event: "world_update",
+                data: {
+                    world: this.world
+                },
+            }));
             client.on("message", (message: any) => {
                 console.log(message.toString(),"ddd");
-                const data = message.toString();
-                const jsonData = JSON.parse(data);
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(message.toString());
+                } catch {
+                    console.log("invalid message");
+                    return;
+                }
                 if (jsonData.event === "sim_add_bunny") {
-                    this.bunnies.push(new Bunny("male", 0, 0, "adult", this.world));
+                    this.world.addBunny(new Bunny("male", 0, 0, "adult"));
                     console.log("added bunny");
                 } 
                 else if (jsonData.event === "sim_set_seed") {
@@ -155,66 +159,28 @@ class Sim {
                     console.log("invalid message");
                 }
             });
-        });        
+        });
+    }
+    private broadcast(event: string, data: object): void {
+        const message = JSON.stringify({ event, data });
         for (const client of this.ws.clients) {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                    event: "world_update",
-                    data: {
-                        world: this.world
-                    },
-                }));
+                client.send(message);
             }
         }
     }
     async tick(): Promise<void> {
         while (true) {
-            for (const bunny of this.bunnies) {
-                bunny.tick();
-                for (const client of this.ws.clients) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            event: "bunny_update",
-                            data: {
-                                bunny
-                            },
-                        }));
-                        client.send(JSON.stringify({
-                            event: "bunny_count_update",
-                            data: {
-                                bunnyCount: this.bunnies.length
-                            },
-                        }));
-                    }
-                }
+            this.world.tick();
+            for (const bunny of this.world.bunnies) {
+                this.broadcast("bunny_update", { bunny });
             }
-            for (const client of this.ws.clients) {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({
-                        event: "world_update",
-                        data: {
-                            world: this.world
-                        },
-                    }));
-                }
-            }
-            this.bunnies = this.bunnies.filter(bunny => !bunny.isDead);
+            this.broadcast("bunny_count_update", { bunnyCount: this.world.bunnies.length });
+            this.broadcast("world_update", { world: this.world });
             await new Promise(resolve => setTimeout(resolve, 750));
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-import WebSocket, { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({
     port: 8080,
@@ -239,8 +205,6 @@ const wss = new WebSocketServer({
         // should not be compressed if context takeover is disabled.
     }
 });
-
-
 
 const sim = new Sim(wss);
 sim.tick();
