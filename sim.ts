@@ -36,6 +36,7 @@ class Bunny {
         {
           name: 'DRINK',
           calculateUtility: () => {
+            this.waterTile = null;
             for (const [index, neighbor] of this.neighbors.neighbors.entries()) {
                 if (neighbor === "water") {
                     this.waterTile = this.neighbors.neighborTilesCords[index];
@@ -64,6 +65,7 @@ class Bunny {
         {
           name: 'EAT',
           calculateUtility: () => {
+            this.foodTile = null;
             for (const [index, neighbor] of this.neighbors.neighbors.entries()) {
                 if (neighbor === "grass") {
                     this.foodTile = this.neighbors.neighborTilesCords[index];
@@ -114,7 +116,7 @@ class Bunny {
     }
     tickNeeds(inertiaBonus: number = 0.1): void {
         this.hunger = Math.min(100, this.hunger + 0.5);
-        this.thirst = Math.min(100, this.thirst + 0.8);
+        this.thirst = Math.min(100, this.thirst + 0.5);
         this.happiness = Math.min(100, this.happiness + 0.3);
         let bestAction: any = this.actions[0];
         let highestScore = -1;
@@ -153,7 +155,6 @@ class Bunny {
         }
     }
     move(destination: number[] | null): void {
-        console.log("moving to", destination);
         if (destination) {
             this.x = destination[0];
             this.y = destination[1];
@@ -250,7 +251,7 @@ class Sim {
                     return;
                 }
                 if (jsonData.event === "sim_add_bunny") {
-                    for (let i = 0; i < 1; i++) {
+                    for (let i = 0; i < 1000; i++) {
                     this.world.addBunny(new Bunny("male", 0, 0, "adult", this.world));
                     }
                     console.log("added bunny");
@@ -289,7 +290,7 @@ class Sim {
             console.log(`Time taken: ${(endTime - startTime).toFixed(4)} ms`);
             this.tickCount++;
             this.broadcast("tick", this.tickSnapshot());
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
     }
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function Controls({ bunnyCount, onAddBunny, onSetSeed }) {
+export default function Controls({ bunnyCount, onAddBunny, onSetSeed, showStats, onToggleStats }) {
   const [seed, setSeed] = useState('42')
 
   return (
@@ -21,6 +21,15 @@ export default function Controls({ bunnyCount, onAddBunny, onSetSeed }) {
       <button className="btn btn-primary" onClick={() => onSetSeed(seed)}>
         Set Seed
       </button>
+      <label className="label mt-2 cursor-pointer gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="toggle toggle-primary"
+          checked={showStats}
+          onChange={(e) => onToggleStats(e.target.checked)}
+        />
+        Show stats
+      </label>
     </div>
   )
 }

@@ -1,10 +1,11 @@
-import BunnyDeck from './components/BunnyDeck.jsx'
+import { useState } from 'react'
 import Controls from './components/Controls.jsx'
 import WorldMap from './components/WorldMap.jsx'
 import useSimSocket from './useSimSocket.js'
 
 function App() {
   const { world, bunnies, bunnyCount, send } = useSimSocket()
+  const [showStats, setShowStats] = useState(true)
 
   return (
     <div className="flex flex-row items-center justify-center h-screen w-screen">
@@ -13,10 +14,11 @@ function App() {
         bunnyCount={bunnyCount}
         onAddBunny={() => send('sim_add_bunny')}
         onSetSeed={(seed) => send('sim_set_seed', { seed })}
+        showStats={showStats}
+        onToggleStats={setShowStats}
       />
-      <BunnyDeck bunnies={bunnies} />
       </div>
-      <WorldMap world={world} bunnies={bunnies} />
+      <WorldMap world={world} bunnies={bunnies} showStats={showStats} />
     </div>
   )
 }

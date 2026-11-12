@@ -1,7 +1,7 @@
 import Bunny from './Bunny.jsx'
 import Tile from './Tile.jsx'
 
-export default function WorldMap({ world, bunnies }) {
+export default function WorldMap({ world, bunnies, showStats }) {
   return (
     <div
       className="flex flex-wrap relative transition-all mx-auto"
@@ -11,7 +11,7 @@ export default function WorldMap({ world, bunnies }) {
         row.map((type, j) => <Tile key={`${i}-${j}`} type={type} />),
       )}
       {bunnies.map((bunny) => (
-        <Bunny key={bunny.id} x={bunny.x} y={bunny.y} />
+        <Bunny key={bunny.id} bunny={bunny} showStats={showStats} />
       ))}
     </div>
   )
