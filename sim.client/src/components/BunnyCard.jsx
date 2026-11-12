@@ -1,8 +1,8 @@
 // Must match the max* fields on Bunny in sim.ts
-const MAX_AGE = 120
-const MAX_HUNGER = 10
-const MAX_THIRST = 10
-const MAX_HAPPINESS = 10
+const MAX_AGE = 100
+const MAX_HUNGER = 100
+const MAX_THIRST = 100
+const MAX_HAPPINESS = 100
 
 function Stat({ icon, value, max, color }) {
   return (
@@ -10,7 +10,7 @@ function Stat({ icon, value, max, color }) {
       <span>{icon}</span>
       <progress className={`progress h-1 flex-1 ${color}`} value={value} max={max} />
       <span className="shrink-0 tabular-nums">
-        {value}/{max}
+        {Math.round(value)}/{max}
       </span>
     </div>
   )
@@ -40,6 +40,8 @@ export default function BunnyCard({ bunny }) {
       <div className="relative mx-1.5 -mt-1 rounded-sm bg-linear-to-r from-amber-400 via-yellow-100 to-amber-400 text-center text-[5px] italic">
         {bunny.gender === 'male' ? '♂ Male' : '♀ Female'} · Age {bunny.age}/{MAX_AGE}
       </div>
+
+      <div className="text-[5px] italic">{bunny.currentAction}</div>
 
       <div className="mt-0.5 space-y-px">
         <Stat icon="🍖" value={bunny.hunger} max={MAX_HUNGER} color="progress-warning" />

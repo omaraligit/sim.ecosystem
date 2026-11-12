@@ -8,6 +8,10 @@ const DIRECTIONS = [
 ];
 
 class Bunny {
+    public world: World;
+    public neighbors: { neighbors: string[], neighborTilesCords: number[][] } = { neighbors: [], neighborTilesCords: [] };
+    public waterTile: number[] | null = null;
+    public foodTile: number[] | null = null;
     private static nextId: number = 1;
     private gender: "male" | "female";
     private stage: "baby" | "adult" | "elder";
@@ -20,21 +24,74 @@ class Bunny {
     private pregnancyDuration: number = 10;
     private pregnancyProgress: number = 0;
     // needs
-    private thirst: number = 0;
-    private hunger: number = 0;
-    private happiness: number = 0;
+    private thirst: number = Math.floor(Math.random() * 100);
+    private hunger: number = Math.floor(Math.random() * 100);
+    private happiness: number = 100;
     private age: number = 0;
-    private maxThirst: number = 10;
-    private maxHunger: number = 10;
-    private maxHappiness: number = 10;
     private maxAge: number = 120;
     public isDead: boolean = false;
-    constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult") {
+
+    private currentAction: any;
+    private actions: any[] = [
+        {
+          name: 'DRINK',
+          calculateUtility: () => {
+            for (const [index, neighbor] of this.neighbors.neighbors.entries()) {
+                if (neighbor === "water") {
+                    this.waterTile = this.neighbors.neighborTilesCords[index];
+                }
+            }
+            if (this.waterTile) {
+                return this.getUrgency(this.thirst);
+            }
+            return 0.0;
+          },
+          execute: (bunny: Bunny) => {
+            bunny.move(bunny.waterTile);
+            bunny.thirst = Math.max(0, bunny.thirst - 5);
+          }
+        },
+        {
+            name: 'WANDER',
+            calculateUtility: () => {
+              return 0.15; // Low constant baseline score so it always has something to do if idle
+            },
+            execute: (bunny: Bunny) => {
+              // console.log(`Bunny ${bunny.id} is hopping around exploring.`);
+                this.move(bunny.neighbors.neighborTilesCords[Math.floor(Math.random() * bunny.neighbors.neighborTilesCords.length)]);
+            }
+          },
+        {
+          name: 'EAT',
+          calculateUtility: () => {
+            for (const [index, neighbor] of this.neighbors.neighbors.entries()) {
+                if (neighbor === "grass") {
+                    this.foodTile = this.neighbors.neighborTilesCords[index];
+                }
+            }
+            if (this.foodTile) {
+                return this.getUrgency(this.hunger);
+            }
+            return 0.0;
+          },
+          execute: (bunny: Bunny) => {
+            bunny.move(bunny.foodTile);
+            bunny.hunger = Math.max(0, bunny.hunger - 5);
+          }
+        }
+    ]
+    // Helper curve: maps 0-100 to an exponential 0.0-1.0 urgency
+    private getUrgency(value: number): number {
+        const normalized = Math.max(0, Math.min(100, value)) / 100;
+        return Math.pow(normalized, 2); // Exponential curve: low values stay low, high values spike
+    }
+    constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult", world: World) {
         this.gender = gender;
         this.id = Bunny.nextId++;
         this.x = x;
         this.y = y;
         this.stage = stage;
+        this.world = world;
     }
     toSnapshot() {
         return {
@@ -48,16 +105,41 @@ class Bunny {
             hunger: this.hunger,
             happiness: this.happiness,
             age: this.age,
+            currentAction: this.currentAction,
         };
     }
-    tick(world: World): void {
+    tick(): void {
         this.tickNeeds();
-        this.move(world);
+        this.neighbors = this.world.getNeighbors(this.x, this.y);
     }
-    tickNeeds(): void {
-        this.thirst = Math.min(Math.max(this.thirst + 1, 0), this.maxThirst);
-        this.hunger = Math.min(Math.max(this.hunger + 1, 0), this.maxHunger);
-        this.happiness = Math.min(Math.max((this.thirst + this.hunger) / 2, 0), this.maxHappiness);
+    tickNeeds(inertiaBonus: number = 0.1): void {
+        this.hunger = Math.min(100, this.hunger + 0.5);
+        this.thirst = Math.min(100, this.thirst + 0.8);
+        this.happiness = Math.min(100, this.happiness + 0.3);
+        let bestAction: any = this.actions[0];
+        let highestScore = -1;
+
+        // 2. Evaluate all actions
+        for (const action of this.actions) {
+        let score = action.calculateUtility();
+
+        // Add inertia bonus to the currently running action to prevent twitchy oscillations
+        if (action.name === this.currentAction) {
+            score += inertiaBonus;
+        }
+
+        if (score > highestScore) {
+            highestScore = score;
+            bestAction = action;
+        }
+        }
+
+        // 3. Switch and execute the winner
+        this.currentAction = bestAction.name;
+        // console.log("executing action", bestAction.name);
+        bestAction.execute(this);
+
+        // 4. Age the bunny
         this.age++;
         if (this.age < 10) {
             this.stage = "baby";
@@ -70,13 +152,11 @@ class Bunny {
             this.isDead = true;
         }
     }
-    move(world: World): void {
-        const randomDirection = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
-        const r = this.x + randomDirection[0];
-        const c = this.y + randomDirection[1];
-        if (r >= 0 && r < world.tiles.length && c >= 0 && c < world.tiles[r].length) {
-            this.x = r;
-            this.y = c;
+    move(destination: number[] | null): void {
+        console.log("moving to", destination);
+        if (destination) {
+            this.x = destination[0];
+            this.y = destination[1];
         }
     }
 }
@@ -110,26 +190,27 @@ class World {
     }
     setTileByValue(noise: number): string {
         if (noise > 0.40) return "rock";
-        if (noise > 0.35) return "tree";
+        if (noise > 0.25) return "tree";
         if (noise > -0.25) return "grass";
         return "water";
     }
     getTile(x: number, y: number): string {
         return this.tiles[x][y];
     }
-    getNeighbors(x: number, y: number): string[] {
+    getNeighbors(x: number, y: number): { neighbors: string[], neighborTilesCords: number[][] } {
         const neighbors: string[] = [];
-
+        const neighborTilesCords: number[][] = [];
         for (const [dr, dc] of DIRECTIONS) {
             const r = x + dr;
             const c = y + dc;
 
             if (r >= 0 && r < this.tiles.length && c >= 0 && c < this.tiles[r].length) {
                 neighbors.push(this.tiles[r][c]);
+                neighborTilesCords.push([r, c]);
             }
         }
 
-        return neighbors;
+        return { "neighbors": neighbors, "neighborTilesCords": neighborTilesCords };
     }
     toStaticSnapshot() {
         return {
@@ -143,7 +224,7 @@ class World {
         this.bunnies.push(bunny);
     }
     tick(): void {
-        for (const bunny of this.bunnies) bunny.tick(this);
+        for (const bunny of this.bunnies) bunny.tick();
         this.bunnies = this.bunnies.filter(bunny => !bunny.isDead);
     }
 }
@@ -152,6 +233,7 @@ class Sim {
     public world: World = new World(20, 20, Math.floor(Math.random() * 1000));
     public ws: WebSocketServer;
     private tickCount: number = 0;
+    lastTickTime: number = 0;
     constructor(ws: WebSocketServer) {
         this.ws = ws;
         ws.on("connection", (client: WebSocket) => {
@@ -168,7 +250,9 @@ class Sim {
                     return;
                 }
                 if (jsonData.event === "sim_add_bunny") {
-                    this.world.addBunny(new Bunny("male", 0, 0, "adult"));
+                    for (let i = 0; i < 1; i++) {
+                    this.world.addBunny(new Bunny("male", 0, 0, "adult", this.world));
+                    }
                     console.log("added bunny");
                 } 
                 else if (jsonData.event === "sim_set_seed") {
@@ -198,10 +282,14 @@ class Sim {
     }
     async tick(): Promise<void> {
         while (true) {
+            const startTime = performance.now();
             this.world.tick();
+            const endTime = performance.now();
+            
+            console.log(`Time taken: ${(endTime - startTime).toFixed(4)} ms`);
             this.tickCount++;
             this.broadcast("tick", this.tickSnapshot());
-            await new Promise(resolve => setTimeout(resolve, 750));
+            await new Promise(resolve => setTimeout(resolve, 1500));
         }
     }
 }
