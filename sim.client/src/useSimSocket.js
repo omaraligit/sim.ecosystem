@@ -6,7 +6,8 @@ export default function useSimSocket() {
   const socketRef = useRef(null)
   const [world, setWorld] = useState({ width: 0, height: 0, tiles: [] })
   const [bunnies, setBunnies] = useState([])
-
+  const [tilesContent, setTilesContent] = useState([])
+  const [history, setHistory] = useState([])
   useEffect(() => {
     const socket = new WebSocket(SERVER_URL)
     socketRef.current = socket
@@ -20,9 +21,14 @@ export default function useSimSocket() {
       switch (data.event) {
         case 'world_init':
           setWorld(data.data)
+          setTilesContent(data.data.tilesContent)
           break
         case 'tick':
           setBunnies(data.data.bunnies)
+          setTilesContent(data.data.tilesContent)
+          break
+        case 'history':
+          setHistory(data.data)
           break
       }
     }
@@ -45,5 +51,5 @@ export default function useSimSocket() {
     }
   }
 
-  return { world, bunnies, bunnyCount: bunnies.length, send }
+  return { world, bunnies, bunnyCount: bunnies.length, tilesContent, history, send }
 }
