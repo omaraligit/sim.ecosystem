@@ -3,9 +3,9 @@ import WebSocket, { WebSocketServer } from 'ws';
 
 const DIRECTIONS = [
     // Layer 2 (Outer ring) & Layer 1 combined (Radius 2)
-    [-2, -2], [-2, -1], [-2, 0], [-2, 1], [-2, 2],
+    [ 0,  0], [-2, -2], [-2, -1], [-2, 0], [-2, 1], [-2, 2],
     [-1, -2], [-1, -1], [-1, 0], [-1, 1], [-1, 2],
-    [ 0, -2], [ 0, -1],          [ 0, 1], [ 0, 2], // Note: [0, 0] is skipped (the bunny's own tile)
+    [ 0, -2], [ 0, -1], [ 0, 1], [ 0, 2],
     [ 1, -2], [ 1, -1], [ 1, 0], [ 1, 1], [ 1, 2],
     [ 2, -2], [ 2, -1], [ 2, 0], [ 2, 1], [ 2, 2],
 ];
@@ -244,9 +244,9 @@ class World {
         const neighborTilesCords: number[][] = [];
         const neighborTilesContent: number[] = [];
         // push the current tile
-        neighbors.push(this.tiles[x][y]);
-        neighborTilesCords.push([x, y]);
-        neighborTilesContent.push(this.tilesContent[x][y]);
+        // neighbors.push(this.tiles[x][y]);
+        // neighborTilesCords.push([x, y]);
+        // neighborTilesContent.push(this.tilesContent[x][y]);
         for (const [dr, dc] of DIRECTIONS) {
             const r = x + dr;
             const c = y + dc;
