@@ -10,105 +10,98 @@ const DIRECTIONS = [
     [ 2, -2], [ 2, -1], [ 2, 0], [ 2, 1], [ 2, 2],
 ];
 
+interface DNA {
+    gender: "male" | "female";
+    maxAge: number;
+    pregnancyDuration: number;
+    hungerRate: number;
+    thirstRate: number;
+    eatAmount: number;
+    drinkAmount: number;
+    distressThreshold: number;
+    happinessDecay: number;
+    happinessRecovery: number;
+}
+
 class Bunny {
-    public world: World;
-    public neighbors: { neighbors: string[], neighborTilesCords: number[][], neighborTilesContent: number[] } = { neighbors: [], neighborTilesCords: [], neighborTilesContent: [] };
-    public waterTile: number[] | null = null;
-    public foodTile: number[] | null = null;
     private static nextId: number = 1;
-    private gender: "male" | "female";
-    private stage: "baby" | "adult" | "elder";
-    private id: number;
-    // position
-    private x: number = 1;
-    private y: number = 1;
-    // pregnancy
-    private isPregnant: boolean = false;
-    private pregnancyDuration: number = 10;
-    private pregnancyProgress: number = 0;
-    // needs
+    public id: number = Bunny.nextId++;
+    public dna: DNA;
+    public stage: "baby" | "adult" | "elder";
+    public x: number;
+    public y: number;
+    public isPregnant: boolean = false;
+    public pregnancyProgress: number = 0;
     public thirst: number = Math.floor(Math.random() * 100);
     public hunger: number = Math.floor(Math.random() * 100);
     public happiness: number = 100;
     public age: number = 0;
-    private maxAge: number = 120;
     public isDead: boolean = false;
+    public currentAction: string = "";
+    public world: World;
+    public neighbors: { neighbors: string[], neighborTilesCords: number[][], neighborTilesContent: number[] } = { neighbors: [], neighborTilesCords: [], neighborTilesContent: [] };
+    public waterTile: number[] | null = null;
+    public foodTile: number[] | null = null;
 
-    private currentAction: any;
     private actions: any[] = [
         {
-          name: 'DRINK',
-          calculateUtility: () => {
-            this.waterTile = null;
-            for (const [index, neighbor] of this.neighbors.neighbors.entries()) {
-                if (neighbor === "water" && this.neighbors.neighborTilesContent[index] > 0) {
-                    this.waterTile = this.neighbors.neighborTilesCords[index];
-                }
-            }
-            if (this.waterTile) {
-                return this.getUrgency(this.thirst);
-            }
-            return 0.0;
-          },
-          execute: (bunny: Bunny) => {
-              if (bunny.waterTile) {
+            name: 'DRINK',
+            calculateUtility: (bunny: Bunny) => {
+                bunny.waterTile = bunny.findTile("water");
+                return bunny.waterTile ? bunny.getUrgency(bunny.thirst) : 0;
+            },
+            execute: (bunny: Bunny) => {
                 bunny.move(bunny.waterTile);
-                bunny.thirst = Math.max(0, bunny.thirst - 5);
-                bunny.world.consumeTile(bunny.waterTile[0], bunny.waterTile[1]);
+                bunny.thirst = Math.max(0, bunny.thirst - bunny.dna.drinkAmount);
+                bunny.world.consumeTile(bunny.waterTile![0], bunny.waterTile![1]);
             }
-          }
         },
         {
             name: 'WANDER',
-            calculateUtility: () => {
-              return 0.15; // Low constant baseline score so it always has something to do if idle
+            calculateUtility: () => 0.15, // Low constant baseline score so it always has something to do if idle
+            execute: (bunny: Bunny) => {
+                const cords = bunny.neighbors.neighborTilesCords;
+                bunny.move(cords[Math.floor(Math.random() * cords.length)]);
+            }
+        },
+        {
+            name: 'EAT',
+            calculateUtility: (bunny: Bunny) => {
+                bunny.foodTile = bunny.findTile("grass");
+                return bunny.foodTile ? bunny.getUrgency(bunny.hunger) : 0;
             },
             execute: (bunny: Bunny) => {
-              // console.log(`Bunny ${bunny.id} is hopping around exploring.`);
-                this.move(bunny.neighbors.neighborTilesCords[Math.floor(Math.random() * bunny.neighbors.neighborTilesCords.length)]);
-            }
-          },
-        {
-          name: 'EAT',
-          calculateUtility: () => {
-            this.foodTile = null;
-            for (const [index, neighbor] of this.neighbors.neighbors.entries()) {
-                if (neighbor === "grass" && this.neighbors.neighborTilesContent[index] > 0) {
-                    this.foodTile = this.neighbors.neighborTilesCords[index];
-                }
-            }
-            if (this.foodTile) {
-                return this.getUrgency(this.hunger);
-            }
-            return 0.0;
-          },
-          execute: (bunny: Bunny) => {
-            if (bunny.foodTile) {
                 bunny.move(bunny.foodTile);
-            bunny.world.consumeTile(bunny.foodTile[0], bunny.foodTile[1]);
-            bunny.hunger = Math.max(0, bunny.hunger - 5);
+                bunny.hunger = Math.max(0, bunny.hunger - bunny.dna.eatAmount);
+                bunny.world.consumeTile(bunny.foodTile![0], bunny.foodTile![1]);
             }
-            return 0.0;
-          },
         }
     ]
-    // Helper curve: maps 0-100 to an exponential 0.0-1.0 urgency
-    private getUrgency(value: number): number {
-        const normalized = Math.max(0, Math.min(100, value)) / 100;
-        return Math.pow(normalized, 2); // Exponential curve: low values stay low, high values spike
-    }
-    constructor(gender: "male" | "female", x: number = 0, y: number = 0, stage: "baby" | "adult" | "elder" = "adult", world: World) {
-        this.gender = gender;
-        this.id = Bunny.nextId++;
+
+    constructor(gender: "male" | "female", x: number, y: number, stage: "baby" | "adult" | "elder", world: World) {
+        this.world = world;
         this.x = x;
         this.y = y;
         this.stage = stage;
-        this.world = world;
+        this.dna = {
+            gender,
+            maxAge: 120,
+            pregnancyDuration: 10,
+            hungerRate: 0.5,
+            thirstRate: 0.5,
+            eatAmount: 5,
+            drinkAmount: 5,
+            distressThreshold: 90,
+            happinessDecay: 3,
+            happinessRecovery: 0.3,
+        };
     }
+
     toSnapshot() {
         return {
             id: this.id,
-            gender: this.gender,
+            gender: this.dna.gender,
+            maxAge: this.dna.maxAge,
             stage: this.stage,
             x: this.x,
             y: this.y,
@@ -120,58 +113,63 @@ class Bunny {
             currentAction: this.currentAction,
         };
     }
+
+    // Helper curve: maps 0-100 to an exponential 0.0-1.0 urgency
+    private getUrgency(value: number): number {
+        const normalized = Math.max(0, Math.min(100, value)) / 100;
+        return Math.pow(normalized, 2); // Exponential curve: low values stay low, high values spike
+    }
+
+    private findTile(type: string): number[] | null {
+        let found: number[] | null = null;
+        for (let i = 0; i < this.neighbors.neighbors.length; i++) {
+            if (this.neighbors.neighbors[i] === type && this.neighbors.neighborTilesContent[i] > 0) {
+                found = this.neighbors.neighborTilesCords[i];
+            }
+        }
+        return found;
+    }
+
     tick(): void {
         this.tickNeeds();
         this.neighbors = this.world.getNeighbors(this.x, this.y);
     }
+
     tickNeeds(inertiaBonus: number = 0.1): void {
-        this.hunger = Math.min(100, this.hunger + 0.5);
-        this.thirst = Math.min(100, this.thirst + 0.5);
-        if (this.hunger > 90 || this.thirst > 90) {
-            this.happiness = Math.max(0, this.happiness - 3);
+        const dna = this.dna;
+        this.hunger = Math.min(100, this.hunger + dna.hungerRate);
+        this.thirst = Math.min(100, this.thirst + dna.thirstRate);
+        if (this.hunger > dna.distressThreshold || this.thirst > dna.distressThreshold) {
+            this.happiness = Math.max(0, this.happiness - dna.happinessDecay);
             if (this.happiness <= 0) {
                 this.isDead = true;
                 return;
             }
         } else {
-            this.happiness = Math.min(100, this.happiness + 0.3);
+            this.happiness = Math.min(100, this.happiness + dna.happinessRecovery);
         }
-        let bestAction: any = this.actions[0];
+
+        let bestAction = this.actions[0];
         let highestScore = -1;
-
-        // 2. Evaluate all actions
         for (const action of this.actions) {
-        let score = action.calculateUtility();
-
-        // Add inertia bonus to the currently running action to prevent twitchy oscillations
-        if (action.name === this.currentAction) {
-            score += inertiaBonus;
+            let score = action.calculateUtility(this);
+            // Inertia bonus on the current action prevents twitchy oscillations
+            if (action.name === this.currentAction) score += inertiaBonus;
+            if (score > highestScore) {
+                highestScore = score;
+                bestAction = action;
+            }
         }
-
-        if (score > highestScore) {
-            highestScore = score;
-            bestAction = action;
-        }
-        }
-
-        // 3. Switch and execute the winner
         this.currentAction = bestAction.name;
-        // console.log("executing action", bestAction.name);
         bestAction.execute(this);
 
-        // 4. Age the bunny
         this.age++;
-        if (this.age < 10) {
-            this.stage = "baby";
-        } else if (this.age >= 10 && this.age < 60) {
-            this.stage = "adult";
-        } else {
-            this.stage = "elder";
-        }
-        if (this.age > this.maxAge && Math.random() < 0.1) {
-            this.isDead = true;
-        }
+        if (this.age < 10) this.stage = "baby";
+        else if (this.age < 60) this.stage = "adult";
+        else this.stage = "elder";
+        if (this.age > this.dna.maxAge && Math.random() < 0.1) this.isDead = true;
     }
+
     move(destination: number[] | null): void {
         if (destination) {
             this.x = destination[0];
@@ -340,24 +338,23 @@ class Sim {
   public record(tick: number, bunnies: Bunny[]) {
     if (bunnies.length === 0) return;
 
-    const totals = bunnies.reduce((acc, b) => {
-      acc.hunger += b.hunger;
-      acc.thirst += b.thirst;
-      acc.happiness += b.happiness;
-      acc.age += b.age;
-      return acc;
-    }, { hunger: 0, thirst: 0, happiness: 0, age: 0 });
+    let hunger = 0, thirst = 0, happiness = 0, age = 0;
+    for (const bunny of bunnies) {
+      hunger += bunny.hunger;
+      thirst += bunny.thirst;
+      happiness += bunny.happiness;
+      age += bunny.age;
+    }
 
-    const stats = {
+    const count = bunnies.length;
+    this.history.push({
       tick,
-      avgHunger: totals.hunger / bunnies.length,
-      avgThirst: totals.thirst / bunnies.length,
-      avgHappiness: totals.happiness / bunnies.length,
-      populationCount: bunnies.length,
-      avgAge: totals.age / bunnies.length,
-    };
-
-    this.history.push(stats);
+      avgHunger: hunger / count,
+      avgThirst: thirst / count,
+      avgHappiness: happiness / count,
+      populationCount: count,
+      avgAge: age / count,
+    });
     if (this.history.length > this.maxHistoryLength) {
       this.history.shift(); // Keep it fixed length
     }

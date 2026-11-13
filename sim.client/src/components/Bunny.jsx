@@ -1,6 +1,3 @@
-// Must match the max* fields on Bunny in sim.ts
-const MAX_AGE = 120
-
 const ACTION_ICONS = {
   DRINK: '💧',
   EAT: '🌿',
@@ -38,7 +35,7 @@ export default function Bunny({ bunny, showStats }) {
             {bunny.isPregnant && ' 🍼'}
           </span>
           <span className="font-normal tabular-nums opacity-70">
-            {bunny.age}/{MAX_AGE}
+            {bunny.age}/{bunny.maxAge}
           </span>
         </div>
         <div className="font-semibold">
