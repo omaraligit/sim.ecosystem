@@ -31,7 +31,7 @@ export default function Bunny({ bunny, showStats }) {
       <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 -mb-1 whitespace-nowrap rounded-md border border-neutral-300 bg-white/95 px-1 py-0.5 text-[6px] leading-tight text-neutral-800 shadow">
         <div className="flex items-center justify-between gap-1 font-bold">
           <span>
-            #{bunny.id} {bunny.gender === 'male' ? '♂' : '♀'} {bunny.stage}
+            #{bunny.id} {bunny.gender === 0 ? '♂' : '♀'} {bunny.stage}
             {bunny.isPregnant && ' 🍼'}
           </span>
           <span className="font-normal tabular-nums opacity-70">

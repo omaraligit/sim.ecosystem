@@ -11,7 +11,7 @@ const DIRECTIONS = [
 ];
 
 interface DNA {
-    gender: "male" | "female";
+    gender: number; // 0 = male, 1 = female
     maxAge: number;
     pregnancyDuration: number;
     hungerRate: number;
@@ -21,6 +21,20 @@ interface DNA {
     distressThreshold: number;
     happinessDecay: number;
     happinessRecovery: number;
+    offspringChance: number;
+}
+const defaultDna: DNA = {
+    gender: 0,
+    maxAge: 120,
+    pregnancyDuration: 10,
+    hungerRate: 0.5,
+    thirstRate: 0.5,
+    eatAmount: 5,
+    drinkAmount: 5,
+    distressThreshold: 90,
+    happinessDecay: 3,
+    happinessRecovery: 0.3,
+    offspringChance: 0.01,
 }
 
 class Bunny {
@@ -73,28 +87,18 @@ class Bunny {
             execute: (bunny: Bunny) => {
                 bunny.move(bunny.foodTile);
                 bunny.hunger = Math.max(0, bunny.hunger - bunny.dna.eatAmount);
+                bunny.thirst = Math.max(0, bunny.thirst - bunny.dna.drinkAmount/2);
                 bunny.world.consumeTile(bunny.foodTile![0], bunny.foodTile![1]);
             }
         }
     ]
 
-    constructor(gender: "male" | "female", x: number, y: number, stage: "baby" | "adult" | "elder", world: World) {
+    constructor(x: number, y: number, stage: "baby" | "adult" | "elder", world: World, dna: DNA = defaultDna) {
         this.world = world;
         this.x = x;
         this.y = y;
         this.stage = stage;
-        this.dna = {
-            gender,
-            maxAge: 120,
-            pregnancyDuration: 10,
-            hungerRate: 0.5,
-            thirstRate: 0.5,
-            eatAmount: 5,
-            drinkAmount: 5,
-            distressThreshold: 90,
-            happinessDecay: 3,
-            happinessRecovery: 0.3,
-        };
+        this.dna = dna;
     }
 
     toSnapshot() {
@@ -132,6 +136,22 @@ class Bunny {
 
     tick(): void {
         this.tickNeeds();
+        if (Math.random() < this.dna.offspringChance && this.hunger < 50 && this.thirst < 50 && this.happiness > 50) {
+            // create a dna copy
+            const newDna = { ...this.dna };
+            // variate the dna slightly
+            // 2. Mutation: Randomly tweak genes to create genetic diversity
+            for (const key of Object.keys(newDna) as (keyof DNA)[]) {
+                if (key === "gender") continue;
+                if (Math.random() < 0.15) {
+                    // Apply a +/- 20% random mutation twist
+                    const factor = 1 + (Math.random() * 0.4 - 0.2);
+                    newDna[key] = Number((newDna[key] * factor).toFixed(2));
+                }
+            }
+            newDna.gender = Math.random() < 0.5 ? 0 : 1;
+            this.world.addBunny(new Bunny(this.x, this.y, "baby", this.world, newDna));
+        }
         this.neighbors = this.world.getNeighbors(this.x, this.y);
     }
 
@@ -257,7 +277,7 @@ class World {
         for (let i = 0; i < this.width; i++) {
             for (let j = 0; j < this.height; j++) {
                 if (this.tiles[i][j] === "grass" || this.tiles[i][j] === "water" ) {
-                    this.tilesContent[i][j] = this.tilesContent[i][j] > 0 ? Math.min(10, this.tilesContent[i][j] + 0.05) : 0;
+                    this.tilesContent[i][j] = this.tilesContent[i][j] > 0 ? Math.min(10, this.tilesContent[i][j] + 0.1) : 0;
                 }
             }
         }
@@ -287,8 +307,8 @@ class Sim {
                     return;
                 }
                 if (jsonData.event === "sim_add_bunny") {
-                    for (let i = 0; i < 1000; i++) {
-                    this.world.addBunny(new Bunny("male", this.world.width/2, this.world.height/2, "adult", this.world));
+                    for (let i = 0; i < 100; i++) {
+                    this.world.addBunny(new Bunny(this.world.width/2, this.world.height/2, "adult", this.world, defaultDna));
                     }
                     console.log("added bunny");
                 } 
@@ -333,7 +353,7 @@ class Sim {
     }
 
     history: { tick: number, avgHunger: number, avgThirst: number, avgHappiness: number, populationCount: number, avgAge: number }[] = [];
-  maxHistoryLength = 100;
+  maxHistoryLength = 1000;
 
   public record(tick: number, bunnies: Bunny[]) {
     if (bunnies.length === 0) return;
