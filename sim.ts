@@ -1,7 +1,7 @@
 import { PerlinNoise } from '@arvarus/trouz';
 import WebSocket, { WebSocketServer } from 'ws';
 
-const DIRECTIONS = [
+const DIRECTIONS_LAYER_2 = [
     // Layer 2 (Outer ring) & Layer 1 combined (Radius 2)
     [ 0,  0], [-2, -2], [-2, -1], [-2, 0], [-2, 1], [-2, 2],
     [-1, -2], [-1, -1], [-1, 0], [-1, 1], [-1, 2],
@@ -9,7 +9,11 @@ const DIRECTIONS = [
     [ 1, -2], [ 1, -1], [ 1, 0], [ 1, 1], [ 1, 2],
     [ 2, -2], [ 2, -1], [ 2, 0], [ 2, 1], [ 2, 2],
 ];
-
+const DIRECTIONS = [
+    [0,  0], [-1,  0], [-1, 1],
+    [0, -1], [-1, -1], [0,  1],
+    [1, -1], [1,   0], [1,  1],
+    ]
 interface DNA {
     gender: number; // 0 = male, 1 = female
     maxAge: number;
@@ -23,19 +27,22 @@ interface DNA {
     happinessRecovery: number;
     offspringChance: number;
 }
-const defaultDna: DNA = {
-    gender: 0,
-    maxAge: 120,
-    pregnancyDuration: 10,
-    hungerRate: 0.5,
-    thirstRate: 0.5,
-    eatAmount: 5,
-    drinkAmount: 5,
-    distressThreshold: 90,
-    happinessDecay: 3,
-    happinessRecovery: 0.3,
-    offspringChance: 0.01,
-}
+ // 0 is male
+ function randomDna(): DNA {
+    return {
+        gender: Math.random() < 0.5 ? 0 : 1,
+        maxAge: 120,
+        pregnancyDuration: 10,
+        hungerRate: Math.random() * 0.5 + 0.1,
+        thirstRate: Math.random() * 0.5 + 0.1,
+        eatAmount: 5,
+        drinkAmount: Math.random() * 5 + 5,
+        distressThreshold: Math.random() * 90 + 10,
+        happinessDecay: Math.random() * 3 + 1,
+        happinessRecovery: Math.random() * 0.3 + 0.1,
+        offspringChance: Math.random() * 0.05 + 0.01,
+    }
+ }
 
 class Bunny {
     private static nextId: number = 1;
@@ -93,7 +100,7 @@ class Bunny {
         }
     ]
 
-    constructor(x: number, y: number, stage: "baby" | "adult" | "elder", world: World, dna: DNA = defaultDna) {
+    constructor(x: number, y: number, stage: "baby" | "adult" | "elder", world: World, dna: DNA = randomDna()) {
         this.world = world;
         this.x = x;
         this.y = y;
@@ -136,7 +143,7 @@ class Bunny {
 
     tick(): void {
         this.tickNeeds();
-        if (Math.random() < this.dna.offspringChance && this.hunger < 50 && this.thirst < 50 && this.happiness > 50) {
+        if (Math.random() < this.dna.offspringChance && this.hunger < 50 && this.thirst < 50 && this.happiness > 50 && this.dna.gender === 1) {
             // create a dna copy
             const newDna = { ...this.dna };
             // variate the dna slightly
@@ -287,7 +294,7 @@ class World {
 }
 
 class Sim {
-    public world: World = new World(20, 20, Math.floor(Math.random() * 1000));
+    public world: World = new World(3, 3, Math.floor(Math.random() * 1000));
     public ws: WebSocketServer;
     private tickCount: number = 0;
     lastTickTime: number = 0;
@@ -308,7 +315,7 @@ class Sim {
                 }
                 if (jsonData.event === "sim_add_bunny") {
                     for (let i = 0; i < 100; i++) {
-                    this.world.addBunny(new Bunny(this.world.width/2, this.world.height/2, "adult", this.world, defaultDna));
+                    this.world.addBunny(new Bunny(Math.floor(Math.random() * this.world.width), Math.floor(Math.random() * this.world.height), "adult", this.world, {...randomDna(),gender:1}));
                     }
                     console.log("added bunny");
                 } 
@@ -348,7 +355,7 @@ class Sim {
             this.tickCount++;
             this.broadcast("tick", this.tickSnapshot());
             this.broadcast("history", this.history);
-            await new Promise(resolve => setTimeout(resolve, 150));
+            await new Promise(resolve => setTimeout(resolve, 60));
         }
     }
 
