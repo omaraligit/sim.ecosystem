@@ -199,8 +199,10 @@ class Bunny {
 
     move(destination: number[] | null): void {
         if (destination) {
+            this.world.removeBunny(this);
             this.x = destination[0];
             this.y = destination[1];
+            this.world.addBunny(this);
         }
     }
 }
@@ -215,8 +217,11 @@ class World {
     public yscale: number = 0.25;
     public readonly seed: number = 42;
     public bunnies: Bunny[] = [];
+    private tilePopulation: number[][] = [];
+    private tilePopulationThreshold: number = 2;
     constructor(width: number = 10, height: number = 10, seed: number = 42) {
         this.tilesContent = Array.from({ length: width }, () => Array(height).fill(10));
+        this.tilePopulation = Array.from({ length: width }, () => Array(height).fill(0));
         this.width = width;
         this.height = height;
         this.seed = seed;
@@ -246,6 +251,17 @@ class World {
     getTile(x: number, y: number): string {
         return this.tiles[x][y];
     }
+    getTilePopulation(x: number, y: number): number {
+        return this.tilePopulation[x][y] || 0;
+    }
+    setTilePopulation(x: number, y: number, count: number): boolean {
+        if (this.getTilePopulation(x, y) + count >= 0) {
+            this.tilePopulation[x][y] += count;
+            return true;
+        } else {
+            return false;
+        }
+    }
     getNeighbors(x: number, y: number): { neighbors: string[], neighborTilesCords: number[][], neighborTilesContent: number[] } {
         const neighbors: string[] = [];
         const neighborTilesCords: number[][] = [];
@@ -273,11 +289,18 @@ class World {
             height: this.height,
             seed: this.seed,
             tiles: this.tiles,
-            tilesContent: this.tilesContent
+            tilesContent: this.tilesContent,
+            tilePopulation: this.tilePopulation,
+            tilePopulationThreshold: this.tilePopulationThreshold,
         };
     }
     addBunny(bunny: Bunny): void {
         this.bunnies.push(bunny);
+        this.setTilePopulation(bunny.x, bunny.y, 1);
+    }
+    removeBunny(bunny: Bunny): void {
+        this.setTilePopulation(bunny.x, bunny.y, -1);
+        this.bunnies = this.bunnies.filter(b => b !== bunny);
     }
     tick(): void {
         // replanish resources
@@ -314,7 +337,7 @@ class Sim {
                     return;
                 }
                 if (jsonData.event === "sim_add_bunny") {
-                    for (let i = 0; i < 100; i++) {
+                    for (let i = 0; i < 1; i++) {
                     this.world.addBunny(new Bunny(Math.floor(Math.random() * this.world.width), Math.floor(Math.random() * this.world.height), "adult", this.world, {...randomDna(),gender:1}));
                     }
                     console.log("added bunny");
@@ -342,7 +365,7 @@ class Sim {
         return {
             tick: this.tickCount,
             bunnies: this.world.bunnies.map(bunny => bunny.toSnapshot()),
-            tilesContent: this.world.tilesContent,
+            ...this.world.toStaticSnapshot(),
         };
     }
     async tick(): Promise<void> {
@@ -355,7 +378,7 @@ class Sim {
             this.tickCount++;
             this.broadcast("tick", this.tickSnapshot());
             this.broadcast("history", this.history);
-            await new Promise(resolve => setTimeout(resolve, 60));
+            await new Promise(resolve => setTimeout(resolve, 600));
         }
     }
 

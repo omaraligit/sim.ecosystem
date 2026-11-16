@@ -5,7 +5,7 @@ import WorldMap from './components/WorldMap.jsx'
 import useSimSocket from './useSimSocket.js'
 
 function App() {
-  const { world, bunnies, bunnyCount, tilesContent, history, send } = useSimSocket()
+  const { world, bunnies, bunnyCount, tilesContent, tilePopulation, tilePopulationThreshold, history, send } = useSimSocket()
   const [showStats, setShowStats] = useState(true)
   const [showTileValues, setShowTileValues] = useState(false)
 
@@ -25,6 +25,8 @@ function App() {
           world={world}
           bunnies={bunnies}
           tilesContent={tilesContent}
+          tilePopulation={tilePopulation}
+          tilePopulationThreshold={tilePopulationThreshold}
           showStats={showStats}
           showTileValues={showTileValues}
         />
